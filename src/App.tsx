@@ -1,15 +1,68 @@
-import { Route, Routes } from "react-router-dom";
-import { FloatingShape } from "./components/FloatingShape";
-import { SignUpPage } from "./pages/SignUpPage";
-import LoginPage from "./pages/LoginPage";
+import { Navigate, Route, Routes } from "react-router-dom";
+import {FloatingShape} from "./components/FloatingShape";
 
-function App() {
+import {SignUpPage} from "./pages/SignUpPage";
+import {LoginPage} from "./pages/LoginPage";
+import {EmailVerificationPage} from "./pages/EmailVerificationPage";
+import {DashboardPage} from "./pages/DashboardPage";
+import {ForgotPasswordPage} from "./pages/ForgotPasswordPage";
+import {ResetPasswordPage} from "./pages/ResetPasswordPage";
+
+import {LoadingSpinner} from "./components/LoadingSpinner";
+
+import { Toaster } from "react-hot-toast";
+import { useAuthStore } from "./store/authStore";
+import { useEffect, ReactNode } from "react";
+
+// Protect routes that require authentication
+interface ProtectedRouteProps {
+  children: ReactNode;
+}
+
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Check if user is defined and if they are verified
+  if (user && !user.isVerified) {
+    return <Navigate to="/verify-email" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Redirect authenticated users to the home page
+interface RedirectAuthenticatedUserProps {
+  children: ReactNode;
+}
+
+const RedirectAuthenticatedUser = ({
+  children,
+}: RedirectAuthenticatedUserProps) => {
+  const { isAuthenticated, user } = useAuthStore();
+
+  // Check if user is defined and if they are verified
+  if (isAuthenticated && user?.isVerified) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const App = () => {
+  const { isCheckingAuth, checkAuth } = useAuthStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  if (isCheckingAuth) return <LoadingSpinner />;
+
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900
-      to-emerald-900 flex justify-center items-center relative overflow-hidden"
-    >
-      {/* Floating shapes */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-emerald-900 flex items-center justify-center relative overflow-hidden">
       <FloatingShape
         color="bg-green-500"
         size="w-64 h-64"
@@ -32,15 +85,54 @@ function App() {
         delay={2}
       />
 
-      {/* Routes */}
       <Routes>
-        <Route path="/" element={<div>Home</div>} />{" "}
-        {/* Wrap "Home" in a div */}
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <RedirectAuthenticatedUser>
+              <SignUpPage />
+            </RedirectAuthenticatedUser>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <RedirectAuthenticatedUser>
+              <LoginPage />
+            </RedirectAuthenticatedUser>
+          }
+        />
+        <Route path="/verify-email" element={<EmailVerificationPage />} />
+        <Route
+          path="/forgot-password"
+          element={
+            <RedirectAuthenticatedUser>
+              <ForgotPasswordPage />
+            </RedirectAuthenticatedUser>
+          }
+        />
+        <Route
+          path="/reset-password/:token"
+          element={
+            <RedirectAuthenticatedUser>
+              <ResetPasswordPage />
+            </RedirectAuthenticatedUser>
+          }
+        />
+        {/* Catch-all route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Toaster />
     </div>
   );
-}
+};
 
 export default App;
